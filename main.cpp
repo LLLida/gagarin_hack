@@ -56,8 +56,13 @@ int main(int argc, char** argv)
   Ebany_Time_series P_packets = {"P-packet size"};
   Ebany_Time_series I_packets = {"I-packet size"};
 
-  Ebany_Time_series smooth = {"smoothened"};
-  float alpha = 0.8;
+  Exponential_Huita smooth_p1(0.3, 0.01);
+  Exponential_Huita smooth_p2(0.01, 0.01);
+  std::vector<double> max_p_diff;
+
+  Exponential_Huita smooth_i1(0.4, 0.17);
+  Exponential_Huita smooth_i2(0.03, 0.17);
+  std::vector<double> max_i_diff;
 
   bool show_demo_window = true;
   bool process_frames = true;
@@ -95,19 +100,39 @@ int main(int argc, char** argv)
 	    }
 	}
 
-      char hex_buff[2048];
       if (process_frames) {
 	auto frame = read_frame(hui);
 	if (frame.pData) {
 	  if (frame.type == 'I') {
 	    I_packets.add(frame.timestamp, frame.feature1);
+	    smooth_i1.add(frame.feature1);
+	    smooth_i2.add(frame.feature1);
+	    double avg = 0.0;
+	    int n = smooth_i1.values.size();
+	    int count = std::min((int)smooth_i1.values.size(), 3);
+	    for (int i = 0; i < count; i++) {
+	      avg += abs(smooth_i1.values[n-i] - smooth_i2.values[n-i]);
+	    }
+	    if (avg > 1000) {
+	      max_i_diff.push_back(max_i_diff.back());
+	    } else {
+	      max_i_diff.push_back(avg / count);
+	    }
 	  } else {
 	    P_packets.add(frame.timestamp, frame.feature1);
-	  }
-	  uint8_t* bytes = (uint8_t*)frame.pData;
-	  int offset = 0;
-	  for (int i = 0; i < 128; i++) {
-	    offset += sprintf(hex_buff+offset, "%x ", bytes[i]);
+	    smooth_p1.add(frame.feature1);
+	    smooth_p2.add(frame.feature1);
+	    double avg = 0.0;
+	    int n = smooth_p1.values.size();
+	    int count = std::min((int)smooth_p1.values.size(), 15);
+	    for (int i = 0; i < count; i++) {
+	      avg += abs(smooth_p1.values[n-i] - smooth_p2.values[n-i]);
+	    }
+	    if (avg > 1000) {
+	      max_p_diff.push_back(max_p_diff.back());
+	    } else {
+	      max_p_diff.push_back(avg / count);
+	    }
 	  }
 	} else {
 	  process_frames = false;
@@ -132,30 +157,42 @@ int main(int argc, char** argv)
       }
       char csv_path[512];
       ImGui::InputTextWithHint("CSV path", "write CSV path you donut", csv_path, sizeof(csv_path));
-      ImGui::TextWrapped("%s", hex_buff);
       if (ImGui::Button("Save to csv")) {
-	// TODO
-	FILE* file = fopen(csv_path, "w");
-	if (!file) {
-	  printf("Failed to open file %s\n", csv_path);
-	} else {
-	  fprintf(file, "time,y\n");
-	  for (int i = 0; i < P_packets.timestamps.size(); i++) {
-	    fprintf(file, "%.3f,%.3f\n", P_packets.timestamps[i], P_packets.values[i]);
-	  }
-	  fclose(file);
-	  printf("Saving to csv... %s\n", csv_path);
-	}
+	int len = strlen(csv_path);
+	sprintf(csv_path+len, "1");
+	P_packets.save_csv(csv_path, "times", "P");
+	sprintf(csv_path+len, "2");
+	I_packets.save_csv(csv_path, "times", "I");
       }
-      // ImPlot::SetNextAxisLimits(ImAxis_X1, 0.0, timestamps.back());
-      // ImPlot::SetNextAxisLimits(ImAxis_Y1, 0.0, 1.0);
       if (ImPlot::BeginPlot("tyagi tyagi tyagi kefteme")) {
-	ImPlot::SetupAxes("time","frame size",ImPlotAxisFlags_AutoFit,ImPlotAxisFlags_AutoFit);
+	if (process_frames) {
+	  ImPlot::SetupAxes("time","frame size", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+	} else {
+	  ImPlot::SetupAxes("time","frame size");
+	}
 	P_packets.plot();
 	I_packets.plot();
+	// note: last smooth_p doesn't get drawn
+	ImPlot::PlotLine("smooth P1", P_packets.timestamps.data(), smooth_p1.values.data(), P_packets.timestamps.size());
+	ImPlot::PlotLine("smooth P2", P_packets.timestamps.data(), smooth_p2.values.data(), P_packets.timestamps.size());
+	ImPlot::PlotLine("smooth I1", I_packets.timestamps.data(), smooth_i1.values.data(), I_packets.timestamps.size());
+	ImPlot::PlotLine("smooth I2", I_packets.timestamps.data(), smooth_i2.values.data(), I_packets.timestamps.size());
+
+	ImPlot::EndPlot();
+      }
+      if (ImPlot::BeginPlot("max diff")) {
+	if (process_frames) {
+	  ImPlot::SetupAxes("time","frame size", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+	} else {
+	  ImPlot::SetupAxes("time","frame size");
+	}
+	ImPlot::PlotLine("P diff", P_packets.timestamps.data(), max_p_diff.data(), P_packets.timestamps.size());
+	ImPlot::PlotLine("I diff", I_packets.timestamps.data(), max_i_diff.data(), I_packets.timestamps.size());
 	ImPlot::EndPlot();
       }
       ImGui::End();
+
+
 
       ImGui::Render();
       SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);

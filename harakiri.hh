@@ -161,4 +161,39 @@ struct Ebany_Time_series {
   void plot() {
     ImPlot::PlotLine(name, timestamps.data(), values.data(), timestamps.size());
   }
+
+  bool save_csv(const char* csv, const char* tname, const char* xname) {
+    FILE* file = fopen(csv, "w");
+    if (!file) {
+      printf("Failed to open file %s\n", csv);
+      return false;
+    }
+
+    fprintf(file, "%s,%s\n", tname, xname);
+    for (int i = 0; i < timestamps.size(); i++) {
+      fprintf(file, "%.3f,%.3f\n", timestamps[i], values[i]);
+    }
+    fclose(file);
+    printf("Saving to csv... %s\n", csv);
+
+    return true;
+  }
+
+};
+
+struct Exponential_Huita {
+
+  double alpha;
+  std::vector<double> values;
+
+  Exponential_Huita(double alpha, double initial_value) {
+    this->alpha = alpha;
+    values.push_back(initial_value);
+  }
+
+  void add(double x) {
+    double v = alpha * x + (1 - alpha) * values.back();
+    values.push_back(v);
+  }
+
 };
