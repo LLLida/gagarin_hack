@@ -69,6 +69,11 @@ int main(int argc, char** argv)
   bool video_done = false;
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+  double P_threshold = 0.012;
+  double I_threshold = 0.015;
+
+  std::vector<Anal_omaly> anals;
+
   // Main loop
   bool done = false;
   while (!done)
@@ -118,6 +123,10 @@ int main(int argc, char** argv)
 	    } else {
 	      max_i_diff.push_back(avg / count);
 	    }
+
+	    if (!max_i_diff.empty() && max_i_diff.back() > I_threshold)
+	      add_anomaly(anals, frame.timestamp);
+
 	  } else {
 	    P_packets.add(frame.timestamp, frame.feature1);
 	    smooth_p1.add(frame.feature1);
@@ -133,6 +142,10 @@ int main(int argc, char** argv)
 	    } else {
 	      max_p_diff.push_back(avg / count);
 	    }
+
+	    if (!max_p_diff.empty() && max_p_diff.back() > P_threshold)
+	      add_anomaly(anals, frame.timestamp);
+
 	  }
 	} else {
 	  process_frames = false;
@@ -192,7 +205,11 @@ int main(int argc, char** argv)
       }
       ImGui::End();
 
-
+      ImGui::Begin("Anomalies");
+      for (auto& anal: anals) {
+	ImGui::Text("Anomaly: #start %.3f #end %.3f", anal.start_second, anal.end_second);
+      }
+      ImGui::End();
 
       ImGui::Render();
       SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);

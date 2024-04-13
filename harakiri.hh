@@ -197,3 +197,21 @@ struct Exponential_Huita {
   }
 
 };
+
+struct Anal_omaly {
+  double start_second;
+  double end_second;
+};
+
+void add_anomaly(std::vector<Anal_omaly>& anals, double t) {
+  if (!anals.empty()) {
+    double delay = 3.0;
+    auto& zad = anals.back();
+    if (zad.end_second + delay >= t) {
+      zad.end_second = t;
+      return;
+    }
+  }
+
+  anals.push_back(Anal_omaly { t, t });
+}
