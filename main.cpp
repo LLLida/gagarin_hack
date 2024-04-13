@@ -56,8 +56,12 @@ int main(int argc, char** argv)
   Ebany_Time_series P_packets = {"P-packet size"};
   Ebany_Time_series I_packets = {"I-packet size"};
 
+  Ebany_Time_series smooth = {"smoothened"};
+  float alpha = 0.8;
+
   bool show_demo_window = true;
   bool process_frames = true;
+  bool video_done = false;
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
   // Main loop
@@ -94,15 +98,20 @@ int main(int argc, char** argv)
       char hex_buff[2048];
       if (process_frames) {
 	auto frame = read_frame(hui);
-	if (frame.type == 'I')
-	  I_packets.add(frame.timestamp, frame.feature1);
-	else
-	  P_packets.add(frame.timestamp, frame.feature1);
-
-	uint8_t* bytes = (uint8_t*)frame.pData;
-	int offset = 0;
-	for (int i = 0; i < 128; i++) {
-	  offset += sprintf(hex_buff+offset, "%x ", bytes[i]);
+	if (frame.pData) {
+	  if (frame.type == 'I') {
+	    I_packets.add(frame.timestamp, frame.feature1);
+	  } else {
+	    P_packets.add(frame.timestamp, frame.feature1);
+	  }
+	  uint8_t* bytes = (uint8_t*)frame.pData;
+	  int offset = 0;
+	  for (int i = 0; i < 128; i++) {
+	    offset += sprintf(hex_buff+offset, "%x ", bytes[i]);
+	  }
+	} else {
+	  process_frames = false;
+	  video_done = true;
 	}
       }
 
@@ -116,7 +125,11 @@ int main(int argc, char** argv)
       }
 
       ImGui::Begin("oh sexy boy");
-      ImGui::Checkbox("Processing frames enabled", &process_frames);
+      if (!video_done) {
+	ImGui::Checkbox("Processing frames enabled", &process_frames);
+      } else {
+	ImGui::TextColored(ImVec4(0.1, 1.0, 0.1, 1.0), "Video is done");
+      }
       char csv_path[512];
       ImGui::InputTextWithHint("CSV path", "write CSV path you donut", csv_path, sizeof(csv_path));
       ImGui::TextWrapped("%s", hex_buff);

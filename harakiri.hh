@@ -129,12 +129,16 @@ int load_mp4(MP4_Sosite_Chlen& hui, const char* path)
 
 Frame_Info read_frame(MP4_Sosite_Chlen& hui)
 {
-  // TODO: check error
-  av_read_frame(hui.pFormatContext, hui.pPacket);
+  Frame_Info pizda = {};
+
+  int r = av_read_frame(hui.pFormatContext, hui.pPacket);
+  if (r < 0) {
+    printf("ended video!\n");
+    return pizda;
+  }
 
   double n = hui.width()*hui.height();
 
-  Frame_Info pizda;
   pizda.pData = hui.pPacket->data;
   pizda.feature1 = hui.pPacket->size/n;
   pizda.type = (hui.pPacket->flags & AV_PKT_FLAG_KEY) ? 'I' : 'P';
