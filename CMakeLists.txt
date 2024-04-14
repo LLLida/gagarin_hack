@@ -33,8 +33,6 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavfilter
     libavformat
     libavcodec
-    libswresample
-    libswscale
     libavutil
 )
 
