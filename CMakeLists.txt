@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
-project(aboba VERSION 0.1)
+project(harakiri VERSION 0.1)
 
-add_executable(aboba "main.cpp"
+add_executable(harakiri "main.cpp"
   "imgui.cpp"
   "imgui_demo.cpp"
   "imgui_draw.cpp"
